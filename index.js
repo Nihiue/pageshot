@@ -33,9 +33,7 @@ async function uploadToS3(fileName, filePath) {
     Bucket: 'kesci-fe-assets',
     Body: fs.createReadStream(filePath),
     Key: `pageshot/${fileName}`,
-    Metadata: {
-      'Content-Type': 'image/jpeg'
-    }
+    ContentType: 'image/jpeg'
   }).promise();
 }
 
