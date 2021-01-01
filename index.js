@@ -7,26 +7,32 @@ const s3 = new AWS.S3();
 
 const chromium = require('chrome-aws-lambda');
 
-async function setFonts() {
-  await chromium.font(path.join(__dirname, '../PingFang_Bold.ttf'));
-  await chromium.font(path.join(__dirname, '../PingFang_Regular.ttf'));
-  await chromium.font(path.join(__dirname, '../SF-Pro-Display-Bold.otf'));
-  await chromium.font(path.join(__dirname, '../SF-Pro-Display-Regular.otf'));
+let fontsDownloaded = false;
+
+async function downloadFonts() {
+  if (fontsDownloaded) {
+    return;
+  }
+  await promise.all([
+   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Bold.ttf'),
+   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Regular.ttf'),
+   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/SF-Pro-Display-Bold.otf'),
+   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/SF-Pro-Display-Regular.otf'),
+  ]);
+  fontsDownloaded = true;
 }
 
 function getHash(str) {
-  return new Promise(resolve, reject => {
-    const hash = crypto.createHash('sha256');
-    hash.update(str);
-    return hash.digest('hex');
-  });
+  const hash = crypto.createHash('sha1');
+  hash.update(str);
+  return hash.digest('hex');
 }
 
 async function uploadToS3(fileName, filePath) {
   await s3.putObject({
     Bucket: 'kesci-fe-assets',
-    Body: fs.readFileSync(filePath, { encoding: 'binary' }),
-    Key: `2020image/${fileName}`
+    Body: fs.createReadStream(filePath),
+    Key: `pageshot/${fileName}`
   }).promise();
 }
 
@@ -34,7 +40,7 @@ async function s3FileExist(fileName) {
   try {
     await s3.headObject({
       Bucket: 'kesci-fe-assets',
-      Key: `2020image/${fileName}`
+      Key: `pageshot/${fileName}`
     }).promise();
     return true;
   } catch (e) {
@@ -50,15 +56,14 @@ function removeFile(filePath) {
   }
 }
 
-exports.handler = (async (event, context, callback) => {
-  await setFonts();
+exports.handler = async (event, context, callback) => {
 
   let browser = null;
   const resp = {
       'isBase64Encoded': false,
       'statusCode': 200,
       'headers': {
-          'X-From-Service': 'SpaRendererChrome',
+          'X-From-Service': 'PageshotExporter',
           'Content-Type': 'text/html; charset=utf-8'
       },
       'body': ''
@@ -74,23 +79,26 @@ exports.handler = (async (event, context, callback) => {
       throw new Error('invalid params');
     }
     const outputName = `${getHash(query.url)}.jpg`;
-    resp.body = outputName;
+    resp.body = `https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/pageshot/${outputName}`;
 
     const exists = await s3FileExist(outputName);
     if (exists) {
       return callback(null, resp);
     }
 
+    await downloadFonts();
+
     browser = await chromium.puppeteer.launch({
       args: chromium.args,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
       defaultViewport: {
         width: 540,
         height: 960,
         deviceScaleFactor: 2,
         isMobile: true
       },
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true,
     });
     const page = await browser.newPage();
 
@@ -99,7 +107,7 @@ exports.handler = (async (event, context, callback) => {
     });
 
     await page.screenshot({
-      path: path.join(__dirname, outputName),
+      path: path.join('/tmp', outputName),
       type: 'jpeg',
       quality: 90,
       fullPage: true
@@ -107,11 +115,12 @@ exports.handler = (async (event, context, callback) => {
 
     await browser.close();
 
-    await uploadToS3(outputName, path.join(__dirname, outputName));
-    await removeFile(path.join(__dirname, outputName));
+    await uploadToS3(outputName, path.join('/tmp', outputName));
+    await removeFile(path.join('/tmp', outputName));
 
     callback(null, resp);
   } catch (e) {
+    console.log(e);
     resp.body = e && e.toString();
     resp.statusCode = 400;
     callback(null, resp);
@@ -120,5 +129,13 @@ exports.handler = (async (event, context, callback) => {
       await browser.close();
     }
   }
+};
 
-})();
+// exports.handler({
+//   queryParameters: {
+//     url: 'https://www.kesci.com/api/notebooks/5fec3c12840381003bfd8076/RenderedContent',
+//     code: '79305'
+//   }
+// }, null, (e, resp) => {
+//   console.log(resp);
+// })
