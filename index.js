@@ -13,7 +13,7 @@ async function downloadFonts() {
   if (fontsDownloaded) {
     return;
   }
-  await promise.all([
+  await Promise.all([
    chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Bold.ttf'),
    chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Regular.ttf'),
    chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/SF-Pro-Display-Bold.otf'),
@@ -32,7 +32,10 @@ async function uploadToS3(fileName, filePath) {
   await s3.putObject({
     Bucket: 'kesci-fe-assets',
     Body: fs.createReadStream(filePath),
-    Key: `pageshot/${fileName}`
+    Key: `pageshot/${fileName}`,
+    Metadata: {
+      'Content-Type': 'image/jpeg'
+    }
   }).promise();
 }
 
