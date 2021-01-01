@@ -9,16 +9,20 @@ const chromium = require('chrome-aws-lambda');
 
 let fontsDownloaded = false;
 
+function sleep(dur = 1000) {
+  return new Promise(resolve => {
+    setTimeout(resolve, dur);
+  });
+}
+
 async function downloadFonts() {
   if (fontsDownloaded) {
     return;
   }
-  await Promise.all([
-   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Bold.ttf'),
-   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/PingFang_Regular.ttf'),
-   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/SF-Pro-Display-Bold.otf'),
-   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/SF-Pro-Display-Regular.otf'),
+  const ret = await Promise.all([
+   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/wqy-microhei.ttc')
   ]);
+  console.log(ret);
   fontsDownloaded = true;
 }
 
@@ -106,6 +110,12 @@ exports.handler = async (event, context, callback) => {
     await page.goto(query.url, {
       waitUntil: 'networkidle0'
     });
+
+    await page.addStyleTag({
+      content: 'body { font-family: "Wen Quan Yi Micro Hei", sans-serif !important;}'
+    });
+
+    await sleep(300);
 
     await page.screenshot({
       path: path.join('/tmp', outputName),
