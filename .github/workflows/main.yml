@@ -39,7 +39,7 @@ jobs:
         with:
           # List of tags
           push: true
-          tags: "nihiue/pageshot-exporter:latest"
+          tags: "registry.cn-shanghai.aliyuncs.com/nihiue/pageshot-exporter:latest"
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
