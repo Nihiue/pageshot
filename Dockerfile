@@ -13,4 +13,5 @@ COPY package.json ./package.json
 RUN npm install
 
 COPY index.js ./index.js
+COPY handler.js ./handler.js
 ENTRYPOINT node index.js
