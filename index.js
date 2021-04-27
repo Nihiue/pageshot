@@ -1,13 +1,9 @@
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
-
-const AWS = require('aws-sdk');
-const s3 = new AWS.S3();
-
 const chromium = require('chrome-aws-lambda');
 
-let fontsDownloaded = false;
+process.env.FUNCTIONS_EMULATOR = 'true';
 
 function sleep(dur = 1000) {
   return new Promise(resolve => {
@@ -19,10 +15,12 @@ async function downloadFonts() {
   if (fontsDownloaded) {
     return;
   }
-  const ret = await Promise.all([
-   chromium.font('https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/fonts/wqy-microhei.ttc')
+  await Promise.all([
+   chromium.font(path.join(__dirname, 'fonts/PingFang_Regular.ttf')),
+   chromium.font(path.join(__dirname, 'fonts/PingFang_Bold.ttf')),
+   chromium.font(path.join(__dirname, 'fonts/SF-Pro-Display-Bold.otf')),
+   chromium.font(path.join(__dirname, 'fonts/SF-Pro-Display-Regular.otf'))
   ]);
-  console.log(ret);
   fontsDownloaded = true;
 }
 
@@ -32,63 +30,46 @@ function getHash(str) {
   return hash.digest('hex');
 }
 
-async function uploadToS3(fileName, filePath) {
-  await s3.putObject({
-    Bucket: 'kesci-fe-assets',
-    Body: fs.createReadStream(filePath),
-    Key: `pageshot/${fileName}`,
-    ContentType: 'image/jpeg'
-  }).promise();
-}
-
-async function s3FileExist(fileName) {
-  try {
-    await s3.headObject({
-      Bucket: 'kesci-fe-assets',
-      Key: `pageshot/${fileName}`
-    }).promise();
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
 function removeFile(filePath) {
   try {
     fs.unlinkSync(filePath);
-
   } catch (e) {
     console.log('unlink faild');
   }
 }
 
+let fontsDownloaded = false;
+
 exports.handler = async (event, context, callback) => {
 
   let browser = null;
+
   const resp = {
-      'isBase64Encoded': false,
+      'isBase64Encoded': true,
       'statusCode': 200,
       'headers': {
           'X-From-Service': 'PageshotExporter',
-          'Content-Type': 'text/html; charset=utf-8'
+          'Content-Type': 'image/jpeg'
       },
       'body': ''
   };
 
-  if (typeof event === 'string') {
-    event = JSON.parse(event);
-  }
-  const query = event.queryParameters || event.queryStringParameters;
-
   try {
-    if (!query.url || query.code != '79305') {
-      throw new Error('invalid params');
+    
+    if (typeof event === 'string') {
+      event = JSON.parse(event);
     }
-    const outputName = `${getHash(query.url)}.jpg`;
-    resp.body = `https://kesci-fe-assets.s3.cn-north-1.amazonaws.com.cn/pageshot/${outputName}`;
+    const query = event.queryParameters || event.queryStringParameters;
+    
+    const option = {
+      width: parseInt(query.width || 1920, 10),
+      height: parseInt(query.height || 1080, 10),
+      dpr: parseInt(query.dpr || 2, 10),
+      isMobile: Boolean(query.mobile)
+    };
 
-    const exists = await s3FileExist(outputName);
-    if (exists) {
-      return callback(null, resp);
+    if (!query.url) {
+      throw new Error('invalid params');
     }
 
     await downloadFonts();
@@ -99,42 +80,49 @@ exports.handler = async (event, context, callback) => {
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
       defaultViewport: {
-        width: 540,
-        height: 960,
-        deviceScaleFactor: 2,
-        isMobile: true
+        width: option.width,
+        height: option.height,
+        deviceScaleFactor: option.dpr,
+        isMobile: option.isMobile
       },
     });
+
     const page = await browser.newPage();
+    const outputName = path.join('/tmp', `${getHash(query.url)}.jpg`);
 
     await page.goto(query.url, {
       waitUntil: 'networkidle0'
     });
 
     await page.addStyleTag({
-      content: 'body { font-family: "Wen Quan Yi Micro Hei", sans-serif !important;}'
+      content: 'body { font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue",  "Microsoft YaHei", sans-serif; }'
     });
 
     await sleep(300);
 
     await page.screenshot({
-      path: path.join('/tmp', outputName),
+      path: outputName,
       type: 'jpeg',
       quality: 90,
       fullPage: true
     });
 
+    resp.body = fs.readFileSync(outputName, null).toString('base64');
+
+    await removeFile(outputName);
     await browser.close();
 
-    await uploadToS3(outputName, path.join('/tmp', outputName));
-    await removeFile(path.join('/tmp', outputName));
-
     callback(null, resp);
+
   } catch (e) {
-    console.log(e);
+
+    resp.isBase64Encoded = false;
+    resp.headers['Content-Type'] = 'text/plain';
     resp.body = e && e.toString();
     resp.statusCode = 400;
+
     callback(null, resp);
+
   } finally {
     if (browser !== null) {
       await browser.close();
