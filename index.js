@@ -7,8 +7,8 @@ const chromium = require('chrome-aws-lambda');
 
 const OPTIONS = {
   pc: {
-    width: 1920,
-    height: 1080,
+    width: 1600,
+    height: 900,
     dpr: 2,
     isMobile: false,
     ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36'
@@ -29,13 +29,19 @@ const OPTIONS = {
   }
 };
 
+function sleep(dur = 1000) {
+  return new Promise(resolve => {
+    setTimeout(resolve, dur);
+  });
+}
+
 let fontsDownloaded = false;
 
 async function downloadFonts() {
   if (fontsDownloaded) {
     return;
   }
-  const fonts = ['PingFang_Regular.ttf', 'PingFang_Bold.ttf', 'SF-Pro-Display-Bold.otf', 'SF-Pro-Display-Regular.otf'];
+  const fonts = ['msyh.ttc', 'PingFang_Regular.ttf', 'PingFang_Bold.ttf', 'SF-Pro-Display-Bold.otf', 'SF-Pro-Display-Regular.otf'];
   await Promise.all(fonts.map((name) => {
     return chromium.font(path.join(__dirname, `fonts/${name}`));
   }));
@@ -93,15 +99,15 @@ exports.handler = async (event, context) => {
     });
 
     await page.addStyleTag({
-      content: 'body { font-family: "SF Pro Display", "PingFang SC", "Helvetica Neue",  "Microsoft YaHei", sans-serif; }'
+      path: path.join(__dirname, 'style.css')
     });
 
-    await page.waitFor(500);
+    await sleep(500);
 
     const image = await page.screenshot({
       type: 'jpeg',
       quality: 90,
-      fullPage: true
+      fullPage: Boolean(query.full)
     });
 
     resp.body = image.toString('base64');
