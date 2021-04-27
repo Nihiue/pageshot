@@ -18,7 +18,6 @@
   "homepage": "https://github.com/Nihiue/pageshot-exporter#readme",
   "dependencies": {
     "chrome-aws-lambda": "^8.0.2",
-    "express": "^4.17.1",
     "puppeteer-core": "^8.0.0"
   }
 }
