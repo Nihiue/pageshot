@@ -1,4 +1,4 @@
-FROM node:12-alpine
+FROM node:12
 MAINTAINER Wanglei<nihiue@gmail.com>
 
 RUN npm install -g npm@6.10.0
