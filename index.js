@@ -4,7 +4,6 @@ process.env.HOME = process.env.TEMP || '/tmp';
 
 const path = require('path');
 const chromium = require('chrome-aws-lambda');
-const { url } = require('inspector');
 
 const DEVICES = {
   pc: {
@@ -58,8 +57,10 @@ async function downloadFonts() {
   fontsDownloaded = true;
 }
 
+
 exports.handler = async (event = {}, context = {}) => {
   let browser = null;
+
   const resp = {
     'isBase64Encoded': true,
     'statusCode': 200,
@@ -93,36 +94,39 @@ exports.handler = async (event = {}, context = {}) => {
     };
 
     await downloadFonts();
-
     browser = await chromium.puppeteer.launch({
       args: chromium.args,
       executablePath: context.executablePath || await chromium.executablePath,
       headless: chromium.headless,
-      ignoreHTTPSErrors: true,
-      defaultViewport: {
-        width: options.device.width,
-        height: options.device.height,
-        deviceScaleFactor: options.device.dpr,
-        isMobile: options.device.isMobile
-      },
+      ignoreHTTPSErrors: true
     });
 
     const page = await browser.newPage();
-    await page.setUserAgent(options.device.ua);
-    await page.emulateTimezone('Asia/Shanghai');
+    let cookies = [];
 
     if (options.cookies) {
       const parsedUrl = new URL(options.url);
-      const cookieArr = options.cookies.split(';').map(t => t.split('=')).filter(p => p.length === 2).map(p => {
+      cookies = options.cookies.split(';').map(t => t.split('=')).filter(p => p.length === 2).map(p => {
         return {
           name: p[0].trim(),
           value: p[1].trim(),
           domain: parsedUrl.hostname,
         };
       });
-
-      await page.setCookie(...cookieArr);
     }
+
+    await Promise.all([
+      page.setViewport({
+        width: options.device.width,
+        height: options.device.height,
+        deviceScaleFactor: options.device.dpr,
+        isMobile: options.isMobile,
+        hasTouch: options.isMobile
+      }),
+      page.setUserAgent(options.device.ua),
+      page.emulateTimezone('Asia/Shanghai'),
+      page.setCookie(...cookies)
+    ]);
 
     await page.goto(options.url, {
       waitUntil: 'networkidle0'
@@ -166,9 +170,8 @@ exports.handler = async (event = {}, context = {}) => {
     resp.headers['Content-Type'] = 'text/plain';
     resp.body = e && e.toString();
   } finally {
-    if (browser !== null) {
-      browser.close();
-    }
+    browser && browser.close();
+    browser = null;
     return resp;
   }
 };
