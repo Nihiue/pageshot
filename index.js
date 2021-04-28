@@ -4,6 +4,7 @@ process.env.HOME = process.env.TEMP || '/tmp';
 
 const path = require('path');
 const chromium = require('chrome-aws-lambda');
+const { url } = require('inspector');
 
 const DEVICES = {
   pc: {
@@ -111,15 +112,15 @@ exports.handler = async (event = {}, context = {}) => {
     await page.emulateTimezone('Asia/Shanghai');
 
     if (options.cookies) {
+      const parsedUrl = new URL(options.url);
       const cookieArr = options.cookies.split(';').map(t => t.split('=')).filter(p => p.length === 2).map(p => {
         return {
           name: p[0].trim(),
-          value: p[1].trim()
+          value: p[1].trim(),
+          domain: parsedUrl.hostname,
         };
       });
-      for (let i = 0; i < arr.length; i +=1) {
-        await page.setCookie(...cookieArr);
-      }
+      await page.setCookie(...cookieArr);
     }
 
     await page.goto(options.url, {
