@@ -1,0 +1,139 @@
+
+<!doctype html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+  <meta charset="utf-8">
+  <title>ScreenShot</title>
+  <style>
+    body {
+      font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, \\5FAE\8F6F\96C5\9ED1, Arial, sans-serif;
+      margin: 0;
+      padding: 14px;
+    }
+    * {
+      box-sizing: border-box;
+    }
+
+    #app {
+      padding: 12px;
+    }
+
+    h1 {
+      font-size: 16px;
+    }
+    button {
+      font-size: 16px;
+      margin-right: 24px;
+    }
+
+    table td,
+    table th {
+      padding: 12px 12px;
+      border: 1px solid #ddd;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 2em 0;
+    }
+
+    input[type="text"] {
+      padding: 4px;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+
+    button,
+    textarea {
+      padding: 4px 12px;
+    }
+  </style>
+  <script src="https://cdn.staticfile.org/vue/2.6.9/vue.min.js"></script>
+  <script src="https://cdn.staticfile.org/jsrsasign/8.0.24/jsrsasign-all-min.js"></script>
+  <script src="https://cdn.staticfile.org/moment.js/2.27.0/moment.min.js"></script>
+</head>
+
+
+<body>
+  <div id="app">
+    <form @submit.prevent="shot">
+      <table>
+        <tr>
+          <td style="min-width: 6em">Url</td>
+          <td style="min-width: 32em"><input type="text" v-model="form.url" required></td>
+        </tr>
+        <tr>
+          <td>Device</td>
+          <td>
+            <select v-model="form.device">
+              <option value="pc">PC</option>
+              <option value="phone">Phone</option>
+              <option value="pad">Pad</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td>Full Page</td>
+          <td>
+            <input type="checkbox" v-model="form.full">
+          </td>
+        </tr>
+          <td>Override Fonts</td>
+          <td>
+            <input type="checkbox" v-model="form.fonts">
+          </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td><button type="submit">Shot</button></td>
+        </tr>
+      </table>
+    </form>
+
+  </div>
+
+  <script>
+    var app = new Vue({
+      el: '#app',
+      data() {
+        return {
+          form: {
+            url: '',
+            device: 'pc',
+            full: false,
+            font: false
+          }
+        };
+      },
+      mounted() {
+        this.loadStorage();
+      },
+      methods: {
+        loadStorage() {
+          let data = localStorage.getItem('_pageshot');
+          if (data) {
+            this.form = JSON.parse(data);
+          }
+        },
+        saveStorage() {
+          localStorage.setItem('_pageshot', JSON.stringify(this.form));
+        },
+        shot() {
+          this.saveStorage();
+          const query = [`url=${encodeURIComponent(this.form.url)}`, `device=${encodeURIComponent(this.form.device)}`];
+          if (this.form.full) {
+            query.push('full=true');
+          }
+          if (this.form.font) {
+            query.push('font=true');
+          }
+          window.open('/api/screenshot?' + query.join('&'), '_blank');
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>

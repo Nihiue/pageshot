@@ -1,15 +1,15 @@
 process.env.FUNCTION_NAME = 'pageshot';
 process.env.AWS_EXECUTION_ENV = 'AWS_Lambda_node12';
-process.env.HOME = '/tmp';
+process.env.HOME = process.env.TEMP || '/tmp';
 
 const path = require('path');
 const chromium = require('chrome-aws-lambda');
 
-const OPTIONS = {
+const DEVICES = {
   pc: {
-    width: 1600,
-    height: 900,
-    dpr: 2,
+    width: 1920,
+    height: 1080,
+    dpr: 1.5,
     isMobile: false,
     ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36'
   },
@@ -41,14 +41,23 @@ async function downloadFonts() {
   if (fontsDownloaded) {
     return;
   }
-  const fonts = ['msyh.ttc', 'PingFang_Regular.ttf', 'PingFang_Bold.ttf', 'SF-Pro-Display-Bold.otf', 'SF-Pro-Display-Regular.otf'];
+  const fonts = [
+    'NotoColorEmoji.ttf',
+    'msyh.ttc',
+    'PingFang_Regular.ttf',
+    'PingFang_Bold.ttf',
+    'PingFang_Medium.ttf',
+    'SF-Pro-Display-Bold.otf',
+    'SF-Pro-Display-Regular.otf',
+    'SF-Pro-Display-Medium.otf'
+  ];
   await Promise.all(fonts.map((name) => {
-    return chromium.font(path.join(__dirname, `fonts/${name}`));
+    return chromium.font(path.join(process.env.LAYER_LIB_PATH || __dirname, `fonts/${name}`));
   }));
   fontsDownloaded = true;
 }
 
-exports.handler = async (event, context) => {
+exports.handler = async (event = {}, context = {}) => {
   let browser = null;
   const resp = {
     'isBase64Encoded': true,
@@ -65,52 +74,71 @@ exports.handler = async (event, context) => {
     }
     const query = event.queryString || event.queryStringParameters;
 
-    console.log(query);
+    if (process.env.VERIFY_CODE && query.code !== process.env.VERIFY_CODE) {
+      throw new Error('invalid params');
+    }
 
     if (!query.url) {
       throw new Error('invalid params');
     }
 
-    if (process.env.VERIFY_CODE && query.code !== process.env.VERIFY_CODE) {
-      throw new Error('invalid params');
-    }
+    const options = {
+      url: query.url,
+      device: DEVICES[query.device] || DEVICES.pc,
+      font: Boolean(query.font),
+      full: Boolean(query.full),
+    };
 
-    const option = OPTIONS[query.device] || OPTIONS.pc;
     await downloadFonts();
 
     browser = await chromium.puppeteer.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath,
+      executablePath: context.executablePath || await chromium.executablePath,
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
       defaultViewport: {
-        width: option.width,
-        height: option.height,
-        deviceScaleFactor: option.dpr,
-        isMobile: option.isMobile
+        width: options.device.width,
+        height: options.device.height,
+        deviceScaleFactor: options.device.dpr,
+        isMobile: options.device.isMobile
       },
     });
 
     const page = await browser.newPage();
-    await page.setUserAgent(option.ua);
+    await page.setUserAgent(options.device.ua);
 
-    await page.goto(query.url, {
+    await page.goto(options.url, {
       waitUntil: 'networkidle0'
     });
 
-    await page.addStyleTag({
-      path: path.join(__dirname, 'style.css')
-    });
+    if (options.font) {
+      await page.addStyleTag({
+        path: path.join(__dirname, 'style.css')
+      });
+    }
 
     await sleep(500);
 
-    const image = await page.screenshot({
+    const capOpt = {
       type: 'jpeg',
       quality: 90,
-      fullPage: Boolean(query.full)
-    });
+      fullPage: Boolean(options.full)
+    };
 
-    resp.body = image.toString('base64');
+    if (context.usePNG) {
+      capOpt.type = 'png';
+      delete capOpt.quality;
+      resp.headers['Content-Type'] = 'image/png';
+    }
+
+    const image = await page.screenshot(capOpt);
+
+    if (context.noBase64) {
+      resp.isBase64Encoded = false;
+      resp.body = image;
+    } else {
+      resp.body = image.toString('base64');
+    }
   } catch (e) {
     resp.isBase64Encoded = false;
     resp.statusCode = 400;
