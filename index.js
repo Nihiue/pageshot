@@ -120,6 +120,7 @@ exports.handler = async (event = {}, context = {}) => {
           domain: parsedUrl.hostname,
         };
       });
+
       await page.setCookie(...cookieArr);
     }
 

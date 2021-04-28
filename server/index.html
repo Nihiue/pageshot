@@ -1,27 +1,37 @@
-
 <!doctype html>
 <html>
 
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
   <meta charset="utf-8">
-  <title>ScreenShot</title>
+  <title>PageShot</title>
   <style>
     body {
+      margin: 0;
       font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, \\5FAE\8F6F\96C5\9ED1, Arial, sans-serif;
       margin: 0;
       padding: 14px;
+      color: #5a5a5a;
+      font-size: 14px;
+      line-height: 1.5;
+      background: #f9fafa;
     }
     * {
       box-sizing: border-box;
     }
 
-    #app {
-      padding: 12px;
+    .container {
+      background: #fff;
+      width: 100%;
+      max-width: 768px;
+      padding: 36px 42px 72px 42px;
+      margin: 0 auto;
+      margin-top: 50px;
+      box-shadow: 2px 2px 20px #eee;
     }
 
     h1 {
-      font-size: 16px;
+      font-size: 24px;
     }
     button {
       font-size: 16px;
@@ -31,12 +41,13 @@
     table td,
     table th {
       padding: 12px 12px;
-      border: 1px solid #ddd;
+      border: 1px solid #e0e0e0;
     }
 
     table {
       border-collapse: collapse;
       margin: 2em 0;
+      width: 100%;
     }
 
     input[type="text"] {
@@ -49,6 +60,7 @@
     textarea {
       padding: 4px 12px;
     }
+
     textarea {
       width: 100%;
     }
@@ -60,15 +72,16 @@
 
 
 <body>
-  <div id="app">
+  <div class="container" id="app">
+    <h1>PageShot</h1>
     <form @submit.prevent="shot">
       <table>
         <tr>
-          <td style="min-width: 6em">Url</td>
-          <td style="min-width: 32em"><input type="text" v-model="form.url" required></td>
+          <td style="width: 10em;">URL</td>
+          <td><input type="text" v-model="form.url" required></td>
         </tr>
         <tr>
-          <td>Device</td>
+          <td>Device Type</td>
           <td>
             <select v-model="form.device">
               <option value="pc">PC</option>
@@ -92,7 +105,8 @@
         <tr>
           <td>Post Script</td>
           <td>
-            <textarea spellcheck="false" rows="6" v-model="form.script" placeholder="optional"></textarea>
+            <div style="margin-bottom: 12px;"><input type="checkbox" v-model="form.autoScript"> Auto Inject</div>
+            <textarea spellcheck="false" rows="8" v-model="form.script" :disabled="form.autoScript" placeholder="optional"></textarea>
           </td>
         </tr>
         <tr>
@@ -103,7 +117,7 @@
         </tr>
         <tr>
           <td></td>
-          <td><button type="submit">Shot</button></td>
+          <td><button type="submit">Go</button></td>
         </tr>
       </table>
     </form>
@@ -120,6 +134,7 @@
             device: 'pc',
             full: false,
             font: false,
+            autoScript: true,
             script: '',
             cookies: ''
           }
@@ -130,15 +145,28 @@
       },
       methods: {
         loadStorage() {
-          let data = localStorage.getItem('_pageshot');
-          data.script = data.script || '';
-          data.cookies = data.cookies || '';
+          const data = localStorage.getItem('_pageshot');
           if (data) {
+            data.script = data.script || '';
+            data.cookies = data.cookies || '';
+            data.autoScript = data.autoScript || false;
             this.form = JSON.parse(data);
           }
         },
         saveStorage() {
           localStorage.setItem('_pageshot', JSON.stringify(this.form));
+        },
+        getAutoScript() {
+          const parsed = new URL(this.form.url);
+          function clickIt(selectors) {
+            return [
+              `${JSON.stringify(selectors)}.forEach(sel => {`,
+              'const el = document.querySelector(sel); el && el.click(); });'
+            ].join(' ');
+          }
+          if (parsed.host.indexOf('zhihu.com') > -1) {
+            return clickIt(['.Button.Modal-closeButton.Button--plain']);
+          }
         },
         shot() {
           this.saveStorage();
@@ -146,7 +174,10 @@
           if (this.form.cookies) {
             query.push(`cookies=${encodeURIComponent(this.form.cookies.split('\n').join(';'))}`);
           }
-          if (this.form.script) {
+          if (this.form.autoScript) {
+            const script = this.getAutoScript();
+            script && query.push(`script=${encodeURIComponent(script.split('\n').join(' '))}`);
+          } else if (this.form.script) {
             query.push(`script=${encodeURIComponent(this.form.script.split('\n').join(' '))}`);
           }
           if (this.form.full) {
@@ -155,7 +186,7 @@
           if (this.form.font) {
             query.push('font=true');
           }
-          window.open('/api/screenshot?' + query.join('&'), '_blank');
+          window.open('/api/pageshot?' + query.join('&'), '_blank');
         }
       }
     })
