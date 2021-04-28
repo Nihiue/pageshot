@@ -87,6 +87,8 @@ exports.handler = async (event = {}, context = {}) => {
       device: DEVICES[query.device] || DEVICES.pc,
       font: Boolean(query.font),
       full: Boolean(query.full),
+      script: query.script,
+      cookies: query.cookies
     };
 
     await downloadFonts();
@@ -106,6 +108,19 @@ exports.handler = async (event = {}, context = {}) => {
 
     const page = await browser.newPage();
     await page.setUserAgent(options.device.ua);
+    await page.emulateTimezone('Asia/Shanghai');
+
+    if (options.cookies) {
+      const cookieArr = options.cookies.split(';').map(t => t.split('=')).filter(p => p.length === 2).map(p => {
+        return {
+          name: p[0].trim(),
+          value: p[1].trim()
+        };
+      });
+      for (let i = 0; i < arr.length; i +=1) {
+        await page.setCookie(...cookieArr);
+      }
+    }
 
     await page.goto(options.url, {
       waitUntil: 'networkidle0'
@@ -116,8 +131,12 @@ exports.handler = async (event = {}, context = {}) => {
         path: path.join(__dirname, 'style.css')
       });
     }
-
     await sleep(500);
+
+    if (options.script) {
+      await page.evaluate(options.script);
+      await sleep(500);
+    }
 
     const capOpt = {
       type: 'jpeg',

@@ -49,6 +49,9 @@
     textarea {
       padding: 4px 12px;
     }
+    textarea {
+      width: 100%;
+    }
   </style>
   <script src="https://cdn.staticfile.org/vue/2.6.9/vue.min.js"></script>
   <script src="https://cdn.staticfile.org/jsrsasign/8.0.24/jsrsasign-all-min.js"></script>
@@ -80,9 +83,22 @@
             <input type="checkbox" v-model="form.full">
           </td>
         </tr>
+        <tr>
           <td>Override Fonts</td>
           <td>
             <input type="checkbox" v-model="form.fonts">
+          </td>
+        </tr>
+        <tr>
+          <td>Post Script</td>
+          <td>
+            <textarea spellcheck="false" rows="6" v-model="form.script" placeholder="optional"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td>Cookies</td>
+          <td>
+            <textarea spellcheck="false" rows="4" v-model="form.cookies" placeholder="optional"></textarea>
           </td>
         </tr>
         <tr>
@@ -103,7 +119,9 @@
             url: '',
             device: 'pc',
             full: false,
-            font: false
+            font: false,
+            script: '',
+            cookies: ''
           }
         };
       },
@@ -113,6 +131,8 @@
       methods: {
         loadStorage() {
           let data = localStorage.getItem('_pageshot');
+          data.script = data.script || '';
+          data.cookies = data.cookies || '';
           if (data) {
             this.form = JSON.parse(data);
           }
@@ -123,6 +143,12 @@
         shot() {
           this.saveStorage();
           const query = [`url=${encodeURIComponent(this.form.url)}`, `device=${encodeURIComponent(this.form.device)}`];
+          if (this.form.cookies) {
+            query.push(`cookies=${encodeURIComponent(this.form.cookies.split('\n').join(';'))}`);
+          }
+          if (this.form.script) {
+            query.push(`script=${encodeURIComponent(this.form.script.split('\n').join(' '))}`);
+          }
           if (this.form.full) {
             query.push('full=true');
           }
