@@ -6,7 +6,7 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ ]
+    branches: [ main ]
   workflow_dispatch:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
@@ -26,7 +26,6 @@ jobs:
         name: Login to DockerHub
         uses: docker/login-action@v1
         with:
-          registry: ${{ secrets.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -39,7 +38,7 @@ jobs:
         with:
           # List of tags
           push: true
-          tags: "registry.cn-shanghai.aliyuncs.com/nihiue/pageshot-exporter:latest"
+          tags: "nihiue/pageshot:latest"
       -
         name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
