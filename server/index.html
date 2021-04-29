@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html>
 
@@ -66,8 +67,6 @@
     }
   </style>
   <script src="https://cdn.staticfile.org/vue/2.6.9/vue.min.js"></script>
-  <script src="https://cdn.staticfile.org/jsrsasign/8.0.24/jsrsasign-all-min.js"></script>
-  <script src="https://cdn.staticfile.org/moment.js/2.27.0/moment.min.js"></script>
 </head>
 
 
@@ -159,13 +158,19 @@
         getAutoScript() {
           const parsed = new URL(this.form.url);
           function clickIt(selectors) {
-            return [
-              `${JSON.stringify(selectors)}.forEach(sel => {`,
-              'const el = document.querySelector(sel); el && el.click(); });'
-            ].join(' ');
+            return `Array.from(document.querySelectorAll('${selectors.join(', ')}')).forEach(e => e.click());`;
+          }
+          function hideIt(selectors) {
+            return `Array.from(document.querySelectorAll('${selectors.join(', ')}')).forEach(e => e.style.display="none");`;
           }
           if (parsed.host.indexOf('zhihu.com') > -1) {
-            return clickIt(['.Button.Modal-closeButton.Button--plain']);
+            return clickIt([
+              '.Button.ContentItem-expandButton',
+              '.Button.Modal-closeButton.Button--plain',
+              '.ModalExp-modalShow .ModalWrap-item:last-child .ModalWrap-itemBtn'
+            ]) + hideIt([
+              '.OpenInAppButton.is-shown'
+            ]);
           }
         },
         shot() {
