@@ -12,8 +12,8 @@ COPY package.json ./package.json
 
 RUN npm install
 
+COPY style.css ./style.css
 COPY index.js ./index.js
-COPY handler.js ./handler.js
 COPY server ./server
 
 ENTRYPOINT node server/server.js
