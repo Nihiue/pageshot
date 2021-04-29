@@ -16,4 +16,4 @@ COPY style.css ./style.css
 COPY index.js ./index.js
 COPY server ./server
 
-ENTRYPOINT node server/server.js
+ENTRYPOINT node server/index.js
