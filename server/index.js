@@ -14,12 +14,12 @@ app.get('/', function(req, res) {
   res.end();
 });
 
-app.get('/api/screenshot', async function (req, res) {
+app.get('/api/pageshot', async function (req, res) {
   const { statusCode, headers, body } = await handler({
     queryString: req.query
   }, {
     noBase64: true,
-    executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    executablePath: process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '',
     usePNG: true
   });
   for (key in headers) {
