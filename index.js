@@ -94,8 +94,9 @@ exports.handler = async (event = {}, context = {}) => {
     };
 
     await downloadFonts();
+    const args = chromium.args.concat(['--font-render-hinting=none']);
     browser = await chromium.puppeteer.launch({
-      args: chromium.args,
+      args: args,
       executablePath: context.executablePath || await chromium.executablePath,
       headless: chromium.headless,
       ignoreHTTPSErrors: true
