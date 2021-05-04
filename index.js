@@ -4,6 +4,7 @@ process.env.HOME = process.env.TEMP || '/tmp';
 
 const path = require('path');
 const chromium = require('chrome-aws-lambda');
+const sharp = require('sharp');
 
 const DEVICES = {
   pc: {
@@ -28,6 +29,8 @@ const DEVICES = {
     ua: 'Mozilla/5.0 (iPad; CPU iPhone OS 13_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.2 Mobile/15E148 Safari/604.1'
   }
 };
+
+const MAX_IMAGE_HEIGHT = 6000;
 
 function sleep(dur = 1000) {
   return new Promise(resolve => {
@@ -56,7 +59,6 @@ async function downloadFonts() {
   }));
   fontsDownloaded = true;
 }
-
 
 exports.handler = async (event = {}, context = {}) => {
   let browser = null;
@@ -145,26 +147,58 @@ exports.handler = async (event = {}, context = {}) => {
       await sleep(500);
     }
 
-    const capOpt = {
-      type: 'jpeg',
-      quality: 90,
-      fullPage: Boolean(options.full)
+    const layoutMetrics = await page._client.send('Page.getLayoutMetrics');
+    const shotSize = {
+      width: layoutMetrics.contentSize.width,
+      height: options.full ? layoutMetrics.contentSize.height : options.device.height
     };
-
-    if (context.usePNG) {
-      capOpt.type = 'png';
-      delete capOpt.quality;
-      resp.headers['Content-Type'] = 'image/png';
+    const tiles = [];
+    for (let ypos = 0; ypos < shotSize.height; ypos += MAX_IMAGE_HEIGHT) {
+      const currentImage = await page.screenshot(options.full ? {
+        type: 'png',
+        clip: {
+          x: 0,
+          y: ypos,
+          width: shotSize.width,
+          height: Math.min(shotSize.height - ypos, MAX_IMAGE_HEIGHT)
+        }
+      } : {
+        type: 'png',
+      });
+      tiles.push({
+        input: currentImage,
+        top: Math.round(ypos * options.device.dpr),
+        left: 0
+      });
     }
 
-    const image = await page.screenshot(capOpt);
+    const sharpInstance = sharp({
+      create: {
+        width: shotSize.width * options.device.dpr,
+        height: Math.ceil(shotSize.height * options.device.dpr),
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 }
+      }
+    }).composite(tiles);
+
+    if (context.usePNG) {
+      resp.headers['Content-Type'] = 'image/png';
+      resp.body = await sharpInstance.png({
+        compressionLevel: 8
+      }).toBuffer();
+    } else {
+      resp.body = await sharpInstance.jpeg({
+        quality: 90,
+        mozjpeg: true
+      }).toBuffer();
+    }
 
     if (context.noBase64) {
       resp.isBase64Encoded = false;
-      resp.body = image;
     } else {
-      resp.body = image.toString('base64');
+      resp.body = resp.body.toString('base64');
     }
+
   } catch (e) {
     resp.isBase64Encoded = false;
     resp.statusCode = 400;
