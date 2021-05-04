@@ -149,7 +149,7 @@ exports.handler = async (event = {}, context = {}) => {
 
     const layoutMetrics = await page._client.send('Page.getLayoutMetrics');
     const shotSize = {
-      width: layoutMetrics.contentSize.width,
+      width: options.device.width,
       height: options.full ? layoutMetrics.contentSize.height : options.device.height
     };
     const tiles = [];
