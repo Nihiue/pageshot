@@ -68,7 +68,7 @@ exports.handler = async (event = {}, context = {}) => {
     'statusCode': 200,
     'headers': {
         'X-From-Service': 'PageshotExporter',
-        'Content-Type': 'image/jpeg'
+        'Content-Type': 'image'
     },
     'body': ''
   };
@@ -92,7 +92,8 @@ exports.handler = async (event = {}, context = {}) => {
       font: Boolean(query.font),
       full: Boolean(query.full),
       script: query.script,
-      cookies: query.cookies
+      cookies: query.cookies,
+      format: query.format || 'webp'
     };
 
     await downloadFonts();
@@ -181,16 +182,29 @@ exports.handler = async (event = {}, context = {}) => {
       }
     }).composite(tiles);
 
-    if (context.usePNG) {
-      resp.headers['Content-Type'] = 'image/png';
-      resp.body = await sharpInstance.png({
-        compressionLevel: 8
-      }).toBuffer();
-    } else {
-      resp.body = await sharpInstance.jpeg({
-        quality: 90,
-        mozjpeg: true
-      }).toBuffer();
+    switch (options.format) {
+      case 'jpg':
+        resp.headers['Content-Type'] = 'image/jpeg';
+        resp.body = await sharpInstance.jpeg({
+          quality: 90,
+          mozjpeg: true
+        }).toBuffer();
+        break;
+
+      case 'png':
+        resp.headers['Content-Type'] = 'image/png';
+        resp.body = await sharpInstance.png({
+          compressionLevel: 8
+        }).toBuffer();
+        break;
+
+      default:
+        resp.headers['Content-Type'] = 'image/webp';
+        resp.body = await sharpInstance.webp({
+          quality: 80,
+          smartSubsample: true,
+          reductionEffort: 6
+        }).toBuffer();
     }
 
     if (context.noBase64) {

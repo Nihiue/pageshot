@@ -19,8 +19,7 @@ app.get('/api/pageshot', async function (req, res) {
     queryString: req.query
   }, {
     noBase64: true,
-    executablePath: process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : '',
-    usePNG: true
+    executablePath: process.platform === 'win32' ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' : ''
   });
   for (key in headers) {
     res.set(key, headers[key]);

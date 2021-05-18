@@ -90,6 +90,16 @@
           </td>
         </tr>
         <tr>
+          <td>Image Format</td>
+          <td>
+            <select v-model="form.format">
+              <option value="webp">WebP</option>
+              <option value="png">PNG</option>
+              <option value="jpg">JPEG</option>
+            </select>
+          </td>
+        </tr>
+        <tr>
           <td>Full Page</td>
           <td>
             <input type="checkbox" v-model="form.full">
@@ -135,7 +145,8 @@
             font: false,
             autoScript: true,
             script: '',
-            cookies: ''
+            cookies: '',
+            format: 'webp'
           }
         };
       },
@@ -175,7 +186,7 @@
         },
         shot() {
           this.saveStorage();
-          const query = [`url=${encodeURIComponent(this.form.url)}`, `device=${encodeURIComponent(this.form.device)}`];
+          const query = [`url=${encodeURIComponent(this.form.url)}`, `device=${encodeURIComponent(this.form.device)}`, `format=${encodeURIComponent(this.form.format)}`];
           if (this.form.cookies) {
             query.push(`cookies=${encodeURIComponent(this.form.cookies.split('\n').join(';'))}`);
           }
