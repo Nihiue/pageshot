@@ -147,15 +147,15 @@ exports.handler = async (event = {}, context = {}) => {
       await page.evaluate(options.script);
       await sleep(500);
     }
-
-    const layoutMetrics = await page._client.send('Page.getLayoutMetrics');
+    
+    const contentHeight = await page.evaluate(() => document.documentElement.offsetHeight);
     const shotSize = {
       width: options.device.width,
-      height: options.full ? layoutMetrics.contentSize.height : options.device.height
+      height: options.full ? contentHeight : Math.min(options.device.height, contentHeight)
     };
     const tiles = [];
     for (let ypos = 0; ypos < shotSize.height; ypos += MAX_IMAGE_HEIGHT) {
-      const currentImage = await page.screenshot(options.full ? {
+      const currentImage = await page.screenshot({
         type: 'png',
         clip: {
           x: 0,
@@ -163,8 +163,6 @@ exports.handler = async (event = {}, context = {}) => {
           width: shotSize.width,
           height: Math.min(shotSize.height - ypos, MAX_IMAGE_HEIGHT)
         }
-      } : {
-        type: 'png',
       });
       tiles.push({
         input: currentImage,
